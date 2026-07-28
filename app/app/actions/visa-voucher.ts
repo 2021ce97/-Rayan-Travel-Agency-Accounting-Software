@@ -10,7 +10,10 @@ const visaVoucherSchema = z.object({
   voucherDate: z.string().min(1),
   customerId: z.coerce.number().int().positive("Select a customer"),
   supplierId: z.coerce.number().int().positive("Select a supplier"),
-  consultantId: z.coerce.number().int().positive().optional(),
+  consultantId: z.preprocess(
+    (v) => (v === "" || v === null || v === undefined ? undefined : v),
+    z.coerce.number().int().positive().optional()
+  ),
   currencyId: z.coerce.number().int().positive(),
   exchangeRate: z.coerce.number().positive().default(1),
 

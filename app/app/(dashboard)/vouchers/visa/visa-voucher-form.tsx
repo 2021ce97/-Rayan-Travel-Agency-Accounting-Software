@@ -8,7 +8,11 @@ import { PartyPicker } from "@/components/vouchers/party-picker";
 
 const initialState: VisaVoucherFormState = { status: "idle" };
 
-export function VisaVoucherForm() {
+export function VisaVoucherForm({
+  defaultConsultant,
+}: {
+  defaultConsultant?: { id: number; name: string };
+}) {
   const [state, formAction, isPending] = useActionState(submitVisaVoucher, initialState);
 
   const [sellingAmount, setSellingAmount] = useState(0);
@@ -54,7 +58,14 @@ export function VisaVoucherForm() {
             required
             error={state.fieldErrors?.supplierId}
           />
-          <PartyPicker name="consultantId" type="consultant" label="Consultant" />
+          <PartyPicker
+            name="consultantId"
+            type="consultant"
+            label="Consultant"
+            defaultValue={defaultConsultant?.id}
+            defaultLabel={defaultConsultant?.name}
+            error={state.fieldErrors?.consultantId}
+          />
         </div>
       </section>
 
