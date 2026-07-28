@@ -1,14 +1,14 @@
-import { db, users, roles } from "@/lib/db";
-import { eq } from "drizzle-orm";
+import { db, users, roles, currencies, agencyExchangeRates } from "@/lib/db";
+import { eq, desc } from "drizzle-orm";
 import { requireSession } from "@/lib/auth/get-session";
-import { createAgencyUser } from "@/app/actions/users";
 import { Mail, Shield, UserPlus, Users as UsersIcon, Wallet2 } from "lucide-react";
 import { InviteUserForm } from "./invite-user-form";
+import { ExchangeRatesForm } from "./exchange-rates-form";
 
 export default async function SettingsPage() {
   const session = await requireSession();
 
-  const [agencyRoles, agencyUsers] = await Promise.all([
+  const [agencyRoles, agencyUsers, allCurrencies, exchangeRates] = await Promise.all([
     db.select({ id: roles.id, name: roles.name }).from(roles).where(eq(roles.agencyId, session.agencyId)),
     db
       .select({
@@ -20,6 +20,17 @@ export default async function SettingsPage() {
       .from(users)
       .innerJoin(roles, eq(users.roleId, roles.id))
       .where(eq(users.agencyId, session.agencyId)),
+    db.select().from(currencies),
+    db.select({
+      id: agencyExchangeRates.id,
+      code: currencies.code,
+      rateToBase: agencyExchangeRates.rateToBase,
+      effectiveDate: agencyExchangeRates.effectiveDate,
+    })
+    .from(agencyExchangeRates)
+    .innerJoin(currencies, eq(agencyExchangeRates.currencyId, currencies.id))
+    .where(eq(agencyExchangeRates.agencyId, session.agencyId))
+    .orderBy(desc(agencyExchangeRates.effectiveDate)),
   ]);
 
   const isPrivileged = ["owner", "admin"].includes(
@@ -39,9 +50,6 @@ export default async function SettingsPage() {
               Manage access, permissions, and exchange-rate preferences for your agency workspace.
             </p>
           </div>
-          <button className="flex items-center gap-2 rounded-2xl bg-white/15 px-4 py-2 font-semibold text-white transition hover:bg-white/20">
-            <UserPlus className="size-4" /> Invite User
-          </button>
         </div>
       </section>
 
@@ -101,11 +109,22 @@ export default async function SettingsPage() {
           <h2 className="flex items-center gap-2 text-base font-semibold text-slate-800">
             <Wallet2 className="size-5 text-emerald-500" /> Exchange Rates
           </h2>
-          <button className="text-sm font-medium text-blue-600 hover:text-blue-700">Update Rates</button>
         </div>
-        <div className="bg-white/50 p-6 text-center">
-          <p className="text-sm text-slate-500">No custom exchange rates configured for this agency yet.</p>
-          <button className="mt-4 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50">Add Currency Rate</button>
+        <div className="p-6 border-b border-slate-100">
+          {isPrivileged && <ExchangeRatesForm currencies={allCurrencies} />}
+        </div>
+        <div className="divide-y divide-slate-100 bg-white/50">
+          {exchangeRates.length === 0 ? (
+            <div className="p-6 text-center text-sm text-slate-500">No custom exchange rates configured for this agency yet.</div>
+          ) : (
+            exchangeRates.map((rate) => (
+              <div key={rate.id} className="flex items-center justify-between px-6 py-4 transition hover:bg-white/70">
+                <div className="font-medium text-slate-800">{rate.code}</div>
+                <div className="text-sm text-slate-500">Rate: <span className="font-semibold text-slate-700">{rate.rateToBase}</span></div>
+                <div className="text-sm text-slate-500">Effective: {rate.effectiveDate}</div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>

@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth/get-session";
 import { sql } from "drizzle-orm";
 import { BookOpen, FileText } from "lucide-react";
+import { BranchFilter } from "../reports/branch-filter";
 
 interface LedgerRow {
   [key: string]: unknown;
@@ -17,17 +18,33 @@ interface LedgerRow {
   net_amount: string;
 }
 
-export default async function LedgerPage() {
+export default async function LedgerPage(props: { searchParams: Promise<{ branchId?: string }> }) {
+  const searchParams = await props.searchParams;
   const session = await requireSession();
+  const selectedBranchId = searchParams.branchId ? parseInt(searchParams.branchId, 10) : undefined;
 
-  const result = await db.execute<LedgerRow>(sql`
-    SELECT account_id, account_name, voucher_id, voucher_no, voucher_type,
-           voucher_date, description, debit_amount, credit_amount, net_amount
-    FROM ledger_view
-    WHERE agency_id = ${session.agencyId}
-    ORDER BY voucher_date DESC, voucher_id DESC
-    LIMIT 200
-  `);
+  const [branches, result] = await Promise.all([
+    db.select({ id: sql`id`, name: sql`name` }).from(sql`branches`).where(sql`agency_id = ${session.agencyId}`),
+    db.execute<LedgerRow>(
+      selectedBranchId
+        ? sql`
+            SELECT account_id, account_name, voucher_id, voucher_no, voucher_type,
+                   voucher_date, description, debit_amount, credit_amount, net_amount
+            FROM ledger_view
+            WHERE agency_id = ${session.agencyId} AND branch_id = ${selectedBranchId}
+            ORDER BY voucher_date DESC, voucher_id DESC
+            LIMIT 200
+          `
+        : sql`
+            SELECT account_id, account_name, voucher_id, voucher_no, voucher_type,
+                   voucher_date, description, debit_amount, credit_amount, net_amount
+            FROM ledger_view
+            WHERE agency_id = ${session.agencyId}
+            ORDER BY voucher_date DESC, voucher_id DESC
+            LIMIT 200
+          `
+    ),
+  ]);
 
   const rows = result;
 
@@ -44,9 +61,12 @@ export default async function LedgerPage() {
               Every posted debit and credit line is visible here in chronological order, helping you audit travel vouchers with confidence.
             </p>
           </div>
-          <div className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm text-slate-200 backdrop-blur">
-            <div className="font-semibold text-white">Latest entries</div>
-            <div className="mt-1 text-xl font-bold text-white">{rows.length}</div>
+          <div className="flex flex-col sm:flex-row gap-4 items-end">
+            <BranchFilter branches={branches as any} />
+            <div className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm text-slate-200 backdrop-blur">
+              <div className="font-semibold text-white">Latest entries</div>
+              <div className="mt-1 text-xl font-bold text-white">{rows.length}</div>
+            </div>
           </div>
         </div>
       </section>

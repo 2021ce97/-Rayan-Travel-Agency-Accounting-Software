@@ -31,12 +31,6 @@ export function InviteUserForm({ roles }: { roles: Array<{ id: number; name: str
         </label>
 
         <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-slate-600">Temporary password</span>
-          <input type="password" name="password" required className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-900/10" />
-          {state.fieldErrors?.password?.[0] ? <span className="text-xs text-red-500">{state.fieldErrors.password[0]}</span> : null}
-        </label>
-
-        <label className="flex flex-col gap-1">
           <span className="text-xs font-medium text-slate-600">Role</span>
           <select name="roleId" required className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-900/10">
             <option value="">Select a role</option>
@@ -51,13 +45,18 @@ export function InviteUserForm({ roles }: { roles: Array<{ id: number; name: str
       </div>
 
       {state.message ? (
-        <div className={`rounded-lg px-3 py-2 text-sm ${state.status === "success" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
-          {state.message}
+        <div className={`rounded-lg px-4 py-3 text-sm ${state.status === "success" ? "bg-emerald-50 text-emerald-800 border border-emerald-200" : "bg-red-50 text-red-800 border border-red-200"}`}>
+          <p className="font-medium">{state.message}</p>
+          {state.inviteLink && (
+            <div className="mt-2 bg-white rounded-md p-2 border border-emerald-200 break-all font-mono text-xs">
+              {typeof window !== "undefined" ? window.location.origin : ""}{state.inviteLink}
+            </div>
+          )}
         </div>
       ) : null}
 
       <button type="submit" disabled={isPending} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60">
-        {isPending ? "Creating user..." : "Create user"}
+        {isPending ? "Inviting..." : "Invite user"}
       </button>
     </form>
   );

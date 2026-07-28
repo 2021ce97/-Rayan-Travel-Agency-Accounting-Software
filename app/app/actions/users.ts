@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { revalidatePath } from "next/cache";
 import { db, users, roles } from "@/lib/db";
 import { and, eq } from "drizzle-orm";
@@ -10,13 +11,13 @@ import { requireSession } from "@/lib/auth/get-session";
 export type CreateUserState = {
   status: "idle" | "error" | "success";
   message?: string;
+  inviteLink?: string;
   fieldErrors?: Record<string, string[]>;
 };
 
 const createUserSchema = z.object({
   name: z.string().min(2, "Name is required"),
   email: z.string().email("Enter a valid email address"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
   roleId: z.coerce.number().int().positive("Select a role"),
 });
 
@@ -45,7 +46,7 @@ export async function createAgencyUser(
     };
   }
 
-  const { name, email, password, roleId } = parsed.data;
+  const { name, email, roleId } = parsed.data;
   const normalizedEmail = email.trim().toLowerCase();
 
   const [selectedRole] = await db
@@ -72,7 +73,9 @@ export async function createAgencyUser(
     return { status: "error", message: "A user with this email already exists in this agency." };
   }
 
-  const passwordHash = await bcrypt.hash(password, 10);
+  const inviteToken = crypto.randomBytes(32).toString("hex");
+  // They will set their real password when they accept the invite
+  const passwordHash = await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 10);
 
   await db.insert(users).values({
     agencyId: session.agencyId,
@@ -80,13 +83,15 @@ export async function createAgencyUser(
     name,
     email: normalizedEmail,
     passwordHash,
-    status: "active",
+    status: "invited",
+    inviteToken,
   });
 
   revalidatePath("/settings");
 
   return {
     status: "success",
-    message: `${selectedRole.name} user created successfully. You can sign in with ${normalizedEmail}.`,
+    message: "User invited successfully. Share this link with them:",
+    inviteLink: `/invite?token=${inviteToken}`,
   };
 }

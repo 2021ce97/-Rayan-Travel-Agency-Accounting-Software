@@ -118,9 +118,15 @@ export default async function VouchersPage() {
                   <div className="flex items-center justify-end gap-3">
                     {v.status === "posted" && (
                       <>
-                        <button className="text-xs font-semibold text-rose-500 hover:text-rose-700 transition-colors">
-                          Void
-                        </button>
+                        <form action={async () => {
+                          "use server";
+                          const { voidVoucher } = await import("@/app/actions/void-voucher");
+                          await voidVoucher(v.id);
+                        }}>
+                          <button type="submit" className="text-xs font-semibold text-rose-500 hover:text-rose-700 transition-colors">
+                            Void
+                          </button>
+                        </form>
                         <a
                           href={`/api/vouchers/${v.id}/pdf`}
                           target="_blank"

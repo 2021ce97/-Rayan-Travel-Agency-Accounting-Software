@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth/get-session";
 import { sql } from "drizzle-orm";
 import { Scale } from "lucide-react";
+import { BranchFilter } from "../reports/branch-filter";
 
 interface TrialBalanceRow {
   [key: string]: unknown;
@@ -13,15 +14,31 @@ interface TrialBalanceRow {
   balance: string;
 }
 
-export default async function TrialBalancePage() {
+export default async function TrialBalancePage(props: { searchParams: Promise<{ branchId?: string }> }) {
+  const searchParams = await props.searchParams;
   const session = await requireSession();
+  const selectedBranchId = searchParams.branchId ? parseInt(searchParams.branchId, 10) : undefined;
 
-  const result = await db.execute<TrialBalanceRow>(sql`
-    SELECT account_code, account_name, account_type, total_debit, total_credit, balance
-    FROM trial_balance_view
-    WHERE agency_id = ${session.agencyId}
-    ORDER BY account_code
-  `);
+  const [branches, result] = await Promise.all([
+    db.select({ id: sql`id`, name: sql`name` }).from(sql`branches`).where(sql`agency_id = ${session.agencyId}`),
+    db.execute<TrialBalanceRow>(
+      selectedBranchId
+        ? sql`
+            SELECT account_code, account_name, account_type, SUM(total_debit) as total_debit, SUM(total_credit) as total_credit, SUM(balance) as balance
+            FROM trial_balance_view
+            WHERE agency_id = ${session.agencyId} AND branch_id = ${selectedBranchId}
+            GROUP BY account_code, account_name, account_type
+            ORDER BY account_code
+          `
+        : sql`
+            SELECT account_code, account_name, account_type, SUM(total_debit) as total_debit, SUM(total_credit) as total_credit, SUM(balance) as balance
+            FROM trial_balance_view
+            WHERE agency_id = ${session.agencyId}
+            GROUP BY account_code, account_name, account_type
+            ORDER BY account_code
+          `
+    ),
+  ]);
 
   const rows = result;
   const totalDebit = rows.reduce((s, r) => s + Number(r.total_debit), 0);
@@ -41,10 +58,13 @@ export default async function TrialBalancePage() {
               Review every account’s debit and credit totals to ensure the books remain balanced and audit-ready.
             </p>
           </div>
-          <div className={`rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm text-slate-200 backdrop-blur ${isBalanced ? "" : "border-rose-300/40"}`}>
-            <div className="font-semibold text-white">Book status</div>
-            <div className={`mt-1 text-xl font-bold ${isBalanced ? "text-emerald-300" : "text-rose-300"}`}>
-              {isBalanced ? "Balanced" : "Needs review"}
+          <div className="flex flex-col sm:flex-row gap-4 items-end">
+            <BranchFilter branches={branches as any} />
+            <div className={`rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm text-slate-200 backdrop-blur ${isBalanced ? "" : "border-rose-300/40"}`}>
+              <div className="font-semibold text-white">Book status</div>
+              <div className={`mt-1 text-xl font-bold ${isBalanced ? "text-emerald-300" : "text-rose-300"}`}>
+                {isBalanced ? "Balanced" : "Needs review"}
+              </div>
             </div>
           </div>
         </div>

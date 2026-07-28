@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { login, type LoginFormState } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 const initialState: LoginFormState = { status: "idle" };
 
@@ -32,7 +33,12 @@ export function LoginForm() {
       </label>
 
       <label className="flex flex-col gap-1.5">
-        <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Password</span>
+        <div className="flex justify-between items-center">
+          <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Password</span>
+          <Link href="/forgot-password" className="text-xs font-medium text-blue-600 hover:text-blue-500" tabIndex={-1}>
+            Forgot password?
+          </Link>
+        </div>
         <input
           name="password"
           type="password"

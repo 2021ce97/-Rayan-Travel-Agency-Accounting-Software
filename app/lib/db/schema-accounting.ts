@@ -57,6 +57,7 @@ export const vouchers = pgTable("vouchers", {
   totalProfit: numeric("total_profit", { precision: 18, scale: 2 }).notNull().default("0"),
   notes: text("notes"),
   status: varchar("status", { length: 20 }).notNull().default("draft"),
+  isVoided: boolean("is_voided").notNull().default(false),
   createdBy: bigint("created_by", { mode: "number" }).references(() => users.id),
   approvedBy: bigint("approved_by", { mode: "number" }).references(() => users.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

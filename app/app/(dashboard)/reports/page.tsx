@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth/get-session";
 import { sql } from "drizzle-orm";
 import { BarChart3, TrendingUp } from "lucide-react";
+import { BranchFilter } from "./branch-filter";
 
 interface PLRow {
   [key: string]: unknown;
@@ -26,24 +27,28 @@ interface AgingRow {
   days_outstanding: number;
 }
 
-export default async function ReportsPage() {
+export default async function ReportsPage(props: { searchParams: Promise<{ branchId?: string }> }) {
+  const searchParams = await props.searchParams;
   const session = await requireSession();
+  const selectedBranchId = searchParams.branchId ? parseInt(searchParams.branchId, 10) : undefined;
 
-  const [plResult, airlineResult, agingResult] = await Promise.all([
-    db.execute<PLRow>(sql`
-      SELECT account_type, account_name, net_amount FROM profit_loss_view
-      WHERE agency_id = ${session.agencyId} ORDER BY account_type, account_name
-    `),
-    db.execute<AirlineRow>(sql`
-      SELECT airline_name, ticket_count, total_sales, total_cost, total_profit
-      FROM airline_wise_sales_view WHERE agency_id = ${session.agencyId}
-      ORDER BY total_sales DESC
-    `),
-    db.execute<AgingRow>(sql`
-      SELECT aging_bucket, customer_name, voucher_no, total_amount, days_outstanding
-      FROM aging_report_view WHERE agency_id = ${session.agencyId}
-      ORDER BY days_outstanding DESC LIMIT 50
-    `),
+  const [branches, plResult, airlineResult, agingResult] = await Promise.all([
+    db.select({ id: sql`id`, name: sql`name` }).from(sql`branches`).where(sql`agency_id = ${session.agencyId}`),
+    db.execute<PLRow>(
+      selectedBranchId
+        ? sql`SELECT account_type, account_name, net_amount FROM profit_loss_view WHERE agency_id = ${session.agencyId} AND branch_id = ${selectedBranchId} ORDER BY account_type, account_name`
+        : sql`SELECT account_type, account_name, sum(net_amount) as net_amount FROM profit_loss_view WHERE agency_id = ${session.agencyId} GROUP BY account_type, account_name ORDER BY account_type, account_name`
+    ),
+    db.execute<AirlineRow>(
+      selectedBranchId
+        ? sql`SELECT airline_name, sum(ticket_count) as ticket_count, sum(total_sales) as total_sales, sum(total_cost) as total_cost, sum(total_profit) as total_profit FROM airline_wise_sales_view WHERE agency_id = ${session.agencyId} AND branch_id = ${selectedBranchId} GROUP BY airline_name ORDER BY total_sales DESC`
+        : sql`SELECT airline_name, sum(ticket_count) as ticket_count, sum(total_sales) as total_sales, sum(total_cost) as total_cost, sum(total_profit) as total_profit FROM airline_wise_sales_view WHERE agency_id = ${session.agencyId} GROUP BY airline_name ORDER BY total_sales DESC`
+    ),
+    db.execute<AgingRow>(
+      selectedBranchId
+        ? sql`SELECT aging_bucket, customer_name, voucher_no, total_amount, days_outstanding FROM aging_report_view WHERE agency_id = ${session.agencyId} AND branch_id = ${selectedBranchId} ORDER BY days_outstanding DESC LIMIT 50`
+        : sql`SELECT aging_bucket, customer_name, voucher_no, total_amount, days_outstanding FROM aging_report_view WHERE agency_id = ${session.agencyId} ORDER BY days_outstanding DESC LIMIT 50`
+    ),
   ]);
 
   const plRows = plResult;
@@ -69,9 +74,13 @@ export default async function ReportsPage() {
               Review profit and loss, airline performance, and receivables aging from one consolidated view.
             </p>
           </div>
-          <div className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm text-slate-200 backdrop-blur">
-            <div className="font-semibold text-white">Net profit</div>
-            <div className={`mt-1 text-xl font-bold ${netProfit >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{netProfit.toFixed(2)}</div>
+          <div className="flex flex-col sm:flex-row gap-4 items-end">
+            <BranchFilter branches={branches as any} />
+
+            <div className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm text-slate-200 backdrop-blur">
+              <div className="font-semibold text-white">Net profit</div>
+              <div className={`mt-1 text-xl font-bold ${netProfit >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{netProfit.toFixed(2)}</div>
+            </div>
           </div>
         </div>
       </section>
