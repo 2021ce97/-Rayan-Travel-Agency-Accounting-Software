@@ -8,7 +8,11 @@ import { PartyPicker } from "@/components/vouchers/party-picker";
 
 const initialState: TicketVoucherFormState = { status: "idle" };
 
-export function TicketVoucherForm() {
+export function TicketVoucherForm({
+  defaultConsultant,
+}: {
+  defaultConsultant?: { id: number; name: string };
+}) {
   const [state, formAction, isPending] = useActionState(submitTicketVoucher, initialState);
 
   const [baseFare, setBaseFare] = useState(0);
@@ -63,7 +67,14 @@ export function TicketVoucherForm() {
             error={state.fieldErrors?.supplierId}
           />
           <PartyPicker name="airlineId" type="airline" label="Airline" error={state.fieldErrors?.airlineId} />
-          <PartyPicker name="consultantId" type="consultant" label="Consultant" error={state.fieldErrors?.consultantId} />
+          <PartyPicker
+            name="consultantId"
+            type="consultant"
+            label="Consultant"
+            defaultValue={defaultConsultant?.id}
+            defaultLabel={defaultConsultant?.name}
+            error={state.fieldErrors?.consultantId}
+          />
         </div>
       </section>
 

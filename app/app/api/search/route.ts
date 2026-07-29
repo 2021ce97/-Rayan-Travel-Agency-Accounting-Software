@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db, customers, suppliers, airlines, consultants, vouchers, chartOfAccounts, tickets } from "@/lib/db";
+import { db, customers, suppliers, airlines, consultants, vouchers, chartOfAccounts, tickets, users, roles } from "@/lib/db";
 import { getSession } from "@/lib/auth/get-session";
 import { and, eq, ilike, or, isNull } from "drizzle-orm";
 
@@ -62,6 +62,46 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ results: rows });
     }
     case "consultant": {
+      // Auto-sync: find all users with the "consultant" role in this agency
+      // and ensure each one has a matching record in the consultants table.
+      // This bridges the gap between user accounts (users table) and party
+      // records (consultants table) without requiring a DB schema migration.
+      const consultantRoleUsers = await db
+        .select({ name: users.name, email: users.email, phone: users.phone })
+        .from(users)
+        .innerJoin(roles, eq(users.roleId, roles.id))
+        .where(
+          and(
+            eq(users.agencyId, session.agencyId),
+            eq(roles.name, "consultant"),
+            eq(users.status, "active")
+          )
+        );
+
+      for (const cu of consultantRoleUsers) {
+        if (!cu.email) continue;
+        const [existing] = await db
+          .select({ id: consultants.id })
+          .from(consultants)
+          .where(
+            and(
+              eq(consultants.agencyId, session.agencyId),
+              eq(consultants.email, cu.email)
+            )
+          )
+          .limit(1);
+
+        if (!existing) {
+          await db.insert(consultants).values({
+            agencyId: session.agencyId,
+            name: cu.name,
+            email: cu.email,
+            phone: cu.phone ?? undefined,
+          });
+        }
+      }
+
+      // Now query the consultants table normally (which now includes synced users)
       const rows = await db
         .select({ id: consultants.id, label: consultants.name, sublabel: consultants.phone })
         .from(consultants)

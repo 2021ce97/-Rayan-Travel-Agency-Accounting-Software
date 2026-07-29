@@ -4,7 +4,7 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { revalidatePath } from "next/cache";
-import { db, users, roles } from "@/lib/db";
+import { db, users, roles, consultants } from "@/lib/db";
 import { and, eq } from "drizzle-orm";
 import { requireSession } from "@/lib/auth/get-session";
 
@@ -86,6 +86,29 @@ export async function createAgencyUser(
     status: "invited",
     inviteToken,
   });
+
+  // If the new user is a consultant, also create a matching party record in
+  // the consultants table so they appear immediately in the consultant picker.
+  if (selectedRole.name === "consultant") {
+    const [existing] = await db
+      .select({ id: consultants.id })
+      .from(consultants)
+      .where(
+        and(
+          eq(consultants.agencyId, session.agencyId),
+          eq(consultants.email, normalizedEmail)
+        )
+      )
+      .limit(1);
+
+    if (!existing) {
+      await db.insert(consultants).values({
+        agencyId: session.agencyId,
+        name,
+        email: normalizedEmail,
+      });
+    }
+  }
 
   revalidatePath("/settings");
 
