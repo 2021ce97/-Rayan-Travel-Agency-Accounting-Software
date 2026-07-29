@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, customers, suppliers, airlines, consultants, vouchers, chartOfAccounts, tickets, users, roles } from "@/lib/db";
 import { getSession } from "@/lib/auth/get-session";
-import { and, eq, ilike, or, isNull } from "drizzle-orm";
+import { and, eq, ilike, or, isNull, inArray } from "drizzle-orm";
 
 type PartyType = "customer" | "supplier" | "airline" | "consultant" | "voucher" | "account" | "ticket";
 
@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
           and(
             eq(users.agencyId, session.agencyId),
             eq(roles.name, "consultant"),
-            eq(users.status, "active")
+            inArray(users.status, ["active", "invited"])
           )
         );
 
