@@ -5,6 +5,8 @@ import { and, eq, ilike, or, isNull, inArray } from "drizzle-orm";
 
 type PartyType = "customer" | "supplier" | "airline" | "consultant" | "voucher" | "account" | "ticket";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   const session = await getSession();
   if (!session) {
