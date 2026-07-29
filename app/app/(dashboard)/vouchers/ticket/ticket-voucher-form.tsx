@@ -62,8 +62,8 @@ export function TicketVoucherForm() {
             required
             error={state.fieldErrors?.supplierId}
           />
-          <PartyPicker name="airlineId" type="airline" label="Airline" />
-          <PartyPicker name="consultantId" type="consultant" label="Consultant" />
+          <PartyPicker name="airlineId" type="airline" label="Airline" error={state.fieldErrors?.airlineId} />
+          <PartyPicker name="consultantId" type="consultant" label="Consultant" error={state.fieldErrors?.consultantId} />
         </div>
       </section>
 

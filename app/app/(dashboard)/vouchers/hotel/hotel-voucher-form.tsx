@@ -54,7 +54,7 @@ export function HotelVoucherForm() {
             required
             error={state.fieldErrors?.supplierId}
           />
-          <PartyPicker name="consultantId" type="consultant" label="Consultant" />
+          <PartyPicker name="consultantId" type="consultant" label="Consultant" error={state.fieldErrors?.consultantId} />
         </div>
       </section>
 
