@@ -70,7 +70,24 @@ export default async function SettingsPage() {
         </div>
       </div>
 
-      {isPrivileged ? <InviteUserForm roles={agencyRoles} /> : null}
+      <section className="overflow-hidden rounded-[24px] border border-slate-200/70 bg-white/70 shadow-sm backdrop-blur">
+        <div className="flex items-center gap-2 border-b border-slate-200/70 bg-slate-50/70 px-6 py-5 text-slate-800">
+          <UserPlus className="size-5 text-indigo-500" />
+          <div>
+            <h2 className="text-base font-semibold">Add user</h2>
+            <p className="mt-0.5 text-sm text-slate-500">Create a team member account and assign its role.</p>
+          </div>
+        </div>
+        <div className="p-6">
+          {isPrivileged ? (
+            <InviteUserForm roles={agencyRoles} />
+          ) : (
+            <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              Only an owner or administrator can add users.
+            </p>
+          )}
+        </div>
+      </section>
 
       <div className="overflow-hidden rounded-[24px] border border-slate-200/70 bg-white/70 shadow-sm backdrop-blur">
         <div className="flex items-center justify-between border-b border-slate-200/70 bg-slate-50/70 px-6 py-5">
