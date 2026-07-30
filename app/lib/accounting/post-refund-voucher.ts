@@ -63,7 +63,7 @@ export async function postRefundVoucher(input: RefundVoucherInput) {
   // Refunds hit a dedicated expense-side account so they show up
   // separately from normal ticket/visa/hotel cost in the P&L, rather
   // than being netted invisibly into the original income line.
-  let [refundAccount] = await db
+  const [refundAccount] = await db
     .select({ id: chartOfAccounts.id })
     .from(chartOfAccounts)
     .where(and(eq(chartOfAccounts.agencyId, input.agencyId), eq(chartOfAccounts.accountCode, "5100")));

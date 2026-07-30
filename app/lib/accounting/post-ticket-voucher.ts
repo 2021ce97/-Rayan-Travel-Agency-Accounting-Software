@@ -1,6 +1,7 @@
 import { db, vouchers, voucherLines, tickets, chartOfAccounts, customers, suppliers } from "@/lib/db";
 import { eq, and } from "drizzle-orm";
 
+
 /**
  * Posting a ticket voucher — the reference implementation for the whole
  * accounting engine. Every other voucher type (visa, hotel, package)

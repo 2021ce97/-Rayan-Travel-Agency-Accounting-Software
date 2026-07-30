@@ -8,16 +8,17 @@ import { PartyPicker } from "@/components/vouchers/party-picker";
 
 const initialState: HotelVoucherFormState = { status: "idle" };
 
-export function HotelVoucherForm({
-  defaultConsultant,
-}: {
-  defaultConsultant?: { id: number; name: string };
-}) {
+type CountryOption = { id: number; name: string };
+type CityOption = { id: number; countryId: number; name: string };
+
+export function HotelVoucherForm({ countries, cities }: { countries: CountryOption[]; cities: CityOption[] }) {
   const [state, formAction, isPending] = useActionState(submitHotelVoucher, initialState);
 
   const [sellingAmount, setSellingAmount] = useState(0);
   const [purchaseAmount, setPurchaseAmount] = useState(0);
+  const [countryId, setCountryId] = useState("");
   const profit = useMemo(() => sellingAmount - purchaseAmount, [sellingAmount, purchaseAmount]);
+  const availableCities = countryId ? cities.filter((city) => city.countryId === Number(countryId)) : [];
 
   return (
     <form action={formAction} className="space-y-6">
@@ -58,14 +59,6 @@ export function HotelVoucherForm({
             required
             error={state.fieldErrors?.supplierId}
           />
-          <PartyPicker
-            name="consultantId"
-            type="consultant"
-            label="Consultant"
-            defaultValue={defaultConsultant?.id}
-            defaultLabel={defaultConsultant?.name}
-            error={state.fieldErrors?.consultantId}
-          />
         </div>
       </section>
 
@@ -73,8 +66,29 @@ export function HotelVoucherForm({
         <h2 className="text-sm font-semibold text-slate-900 mb-4">Stay details</h2>
         <div className="grid grid-cols-3 gap-4">
           <Field label="Hotel Name" name="hotelName" />
-          <Field label="Country ID" name="countryId" type="number" />
-          <Field label="City ID" name="cityId" type="number" />
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-slate-600">Country</span>
+            <select
+              name="countryId"
+              value={countryId}
+              onChange={(event) => setCountryId(event.target.value)}
+              className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
+            >
+              <option value="">Select a country (optional)</option>
+              {countries.map((country) => <option key={country.id} value={country.id}>{country.name}</option>)}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-slate-600">City</span>
+            <select
+              name="cityId"
+              disabled={!countryId || availableCities.length === 0}
+              className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 disabled:cursor-not-allowed disabled:bg-slate-100"
+            >
+              <option value="">{!countryId ? "Select a country first" : availableCities.length === 0 ? "No cities configured" : "Select a city (optional)"}</option>
+              {availableCities.map((city) => <option key={city.id} value={city.id}>{city.name}</option>)}
+            </select>
+          </label>
           <Field label="Check-in Date" name="checkInDate" type="date" />
           <Field label="Check-out Date" name="checkOutDate" type="date" />
           <Field label="Nights" name="nights" type="number" min={0} />

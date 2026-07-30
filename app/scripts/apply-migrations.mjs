@@ -31,7 +31,17 @@ try {
   `;
 
   if (exists) {
-    console.log("Database schema already exists; skipping migrations.");
+    // Older installations may have been created before later application
+    // columns were introduced. Migration 006 is idempotent and keeps those
+    // databases compatible without replaying the original CREATE TABLE files.
+    const upgradePath = join(rootDir, "db", "migrations", "006_upgrade_existing_databases.sql");
+    if (existsSync(upgradePath)) {
+      console.log("Applying compatibility upgrade...");
+      await sql.unsafe(readFileSync(upgradePath, "utf8"));
+      console.log("Compatibility upgrade applied successfully.");
+    } else {
+      console.log("Database schema already exists; no compatibility upgrade found.");
+    }
   } else {
     const migrationsDir = join(rootDir, "db", "migrations");
     const migrationFiles = readdirSync(migrationsDir)

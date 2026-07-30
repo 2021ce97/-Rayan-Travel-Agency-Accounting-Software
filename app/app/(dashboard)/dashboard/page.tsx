@@ -1,12 +1,8 @@
 import Link from "next/link";
 import { TrendingUp, Ticket, Users, AlertCircle, ArrowRight, BookOpen, FileText } from "lucide-react";
-
-const cards = [
-  { label: "Today's Sales", value: "PKR 0", icon: TrendingUp, hint: "0 vouchers posted", gradient: "from-blue-500/10 to-indigo-500/10", iconColor: "text-blue-500" },
-  { label: "Tickets This Month", value: "0", icon: Ticket, hint: "0 PNRs", gradient: "from-emerald-500/10 to-teal-500/10", iconColor: "text-emerald-500" },
-  { label: "Active Customers", value: "0", icon: Users, hint: "0 with balances", gradient: "from-violet-500/10 to-purple-500/10", iconColor: "text-violet-500" },
-  { label: "Overdue Receivables", value: "PKR 0", icon: AlertCircle, hint: "0 vouchers 90+ days", gradient: "from-rose-500/10 to-red-500/10", iconColor: "text-rose-500" },
-];
+import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
+import { agencies, customers, db, vouchers } from "@/lib/db";
+import { requireSession } from "@/lib/auth/get-session";
 
 const quickActions = [
   { href: "/vouchers/ticket", label: "Create ticket voucher", icon: Ticket },
@@ -14,7 +10,45 @@ const quickActions = [
   { href: "/reports", label: "Open reports", icon: FileText },
 ];
 
-export default function DashboardPage() {
+function formatAmount(value: string | number | null | undefined, currency: string) {
+  return `${currency} ${Number(value ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+export default async function DashboardPage() {
+  const session = await requireSession();
+  const postedVoucher = and(
+    eq(vouchers.agencyId, session.agencyId),
+    eq(vouchers.status, "posted"),
+    eq(vouchers.isVoided, false),
+    isNull(vouchers.deletedAt),
+  );
+
+  const [agencyRows, todaySalesRows, monthTicketRows, activeCustomerRows, overdueReceivableRows] = await Promise.all([
+    db.select({ baseCurrency: agencies.baseCurrency }).from(agencies).where(eq(agencies.id, session.agencyId)).limit(1),
+    db.select({ total: sql<string>`coalesce(sum(${vouchers.totalAmount}), 0)` }).from(vouchers).where(and(postedVoucher, sql`${vouchers.voucherDate} = CURRENT_DATE`)),
+    db.select({ count: sql<number>`count(*)::int` }).from(vouchers).where(and(postedVoucher, eq(vouchers.voucherType, "ticket"), sql`${vouchers.voucherDate} >= date_trunc('month', CURRENT_DATE)::date`)),
+    db.select({ count: sql<number>`count(*)::int` }).from(customers).where(and(eq(customers.agencyId, session.agencyId), eq(customers.status, "active"))),
+    db.select({ total: sql<string>`coalesce(sum(${vouchers.totalAmount}), 0)`, count: sql<number>`count(*)::int` })
+      .from(vouchers)
+      .where(and(postedVoucher, isNotNull(vouchers.customerId), sql`${vouchers.voucherDate} < CURRENT_DATE - INTERVAL '90 days'`)),
+  ]);
+
+  const currency = agencyRows[0]?.baseCurrency ?? "PKR";
+  const todaySales = todaySalesRows[0]?.total ?? "0";
+  const ticketsThisMonth = monthTicketRows[0]?.count ?? 0;
+  const activeCustomers = activeCustomerRows[0]?.count ?? 0;
+  const overdueReceivables = overdueReceivableRows[0]?.total ?? "0";
+  const overdueCount = overdueReceivableRows[0]?.count ?? 0;
+
+  const cards = [
+    { label: "Today's Sales", value: formatAmount(todaySales, currency), icon: TrendingUp, hint: "Posted vouchers dated today", gradient: "from-blue-500/10 to-indigo-500/10", iconColor: "text-blue-500" },
+    { label: "Tickets This Month", value: ticketsThisMonth.toLocaleString(), icon: Ticket, hint: "Posted ticket vouchers", gradient: "from-emerald-500/10 to-teal-500/10", iconColor: "text-emerald-500" },
+    { label: "Active Customers", value: activeCustomers.toLocaleString(), icon: Users, hint: "Active customer records", gradient: "from-violet-500/10 to-purple-500/10", iconColor: "text-violet-500" },
+    { label: "Overdue Receivables", value: formatAmount(overdueReceivables, currency), icon: AlertCircle, hint: `${overdueCount} voucher${overdueCount === 1 ? "" : "s"} over 90 days`, gradient: "from-rose-500/10 to-red-500/10", iconColor: "text-rose-500" },
+  ];
+
+  const hasActivity = Number(todaySales) > 0 || ticketsThisMonth > 0 || activeCustomers > 0;
+
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <section className="rounded-[28px] border border-slate-200/70 bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 p-8 text-white shadow-[0_30px_90px_-35px_rgba(15,23,42,0.55)]">
@@ -32,7 +66,7 @@ export default function DashboardPage() {
           </div>
           <div className="rounded-2xl border border-white/15 bg-white/10 p-4 text-sm text-slate-200 backdrop-blur">
             <div className="font-semibold text-white">Current focus</div>
-            <div className="mt-2 text-sm text-slate-300">Post your first voucher to unlock real-time figures.</div>
+            <div className="mt-2 text-sm text-slate-300">{hasActivity ? "Your live figures are based on posted vouchers and active customer records." : "Post your first voucher to begin tracking live figures."}</div>
           </div>
         </div>
 

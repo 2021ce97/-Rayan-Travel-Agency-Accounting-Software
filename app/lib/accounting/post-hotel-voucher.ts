@@ -1,4 +1,4 @@
-import { db, vouchers, voucherLines, hotels, chartOfAccounts, customers, suppliers } from "@/lib/db";
+import { db, vouchers, voucherLines, hotels, chartOfAccounts, customers, suppliers, countries, cities } from "@/lib/db";
 import { eq, and } from "drizzle-orm";
 
 /**
@@ -55,6 +55,18 @@ export async function postHotelVoucher(input: HotelVoucherInput) {
   }
   if (!supplier?.accountId) {
     throw new Error("Supplier has no linked payable account. Set suppliers.account_id first.");
+  }
+
+  if (input.countryId) {
+    const [country] = await db.select({ id: countries.id }).from(countries).where(eq(countries.id, input.countryId));
+    if (!country) throw new Error("The selected country no longer exists. Please select a valid country.");
+  }
+
+  if (input.cityId) {
+    const [city] = await db.select({ countryId: cities.countryId }).from(cities).where(eq(cities.id, input.cityId));
+    if (!city || (input.countryId && city.countryId !== input.countryId)) {
+      throw new Error("The selected city is invalid for the selected country. Please choose a city from the list.");
+    }
   }
 
   const [hotelIncomeAccount] = await db

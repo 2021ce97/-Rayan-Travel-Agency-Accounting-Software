@@ -3,29 +3,36 @@
 import { z } from "zod";
 import { postHotelVoucher } from "@/lib/accounting/post-hotel-voucher";
 import { requireSession } from "@/lib/auth/get-session";
+import { getCurrentConsultantId } from "@/lib/auth/current-consultant";
+import { ensureVoucherNumberIsAvailable } from "@/lib/accounting/voucher-number";
 import { revalidatePath } from "next/cache";
+
+const optionalPositiveInteger = z.preprocess(
+  (value) => (value === "" || value === null || value === undefined ? undefined : value),
+  z.coerce.number().int().positive().optional()
+);
+const optionalNonNegativeInteger = z.preprocess(
+  (value) => (value === "" || value === null || value === undefined ? undefined : value),
+  z.coerce.number().int().min(0).optional()
+);
 
 const hotelVoucherSchema = z.object({
   voucherNo: z.string().min(1, "Voucher number is required"),
   voucherDate: z.string().min(1),
   customerId: z.coerce.number().int().positive("Select a customer"),
   supplierId: z.coerce.number().int().positive("Select a supplier"),
-  consultantId: z.preprocess(
-    (v) => (v === "" || v === null || v === undefined ? undefined : v),
-    z.coerce.number().int().positive().optional()
-  ),
   currencyId: z.coerce.number().int().positive(),
   exchangeRate: z.coerce.number().positive().default(1),
 
   hotelName: z.string().optional(),
-  countryId: z.coerce.number().int().positive().optional(),
-  cityId: z.coerce.number().int().positive().optional(),
+  countryId: optionalPositiveInteger,
+  cityId: optionalPositiveInteger,
   checkInDate: z.string().optional(),
   checkOutDate: z.string().optional(),
-  nights: z.coerce.number().int().min(0).optional(),
-  rooms: z.coerce.number().int().min(0).optional(),
-  adults: z.coerce.number().int().min(0).optional(),
-  children: z.coerce.number().int().min(0).optional(),
+  nights: optionalNonNegativeInteger,
+  rooms: optionalNonNegativeInteger,
+  adults: optionalNonNegativeInteger,
+  children: optionalNonNegativeInteger,
   roomType: z.string().optional(),
 
   sellingAmount: z.coerce.number().min(0),
@@ -54,13 +61,17 @@ export async function submitHotelVoucher(
   }
 
   const session = await requireSession();
+  const consultantId = await getCurrentConsultantId(session);
 
   try {
+    const voucherNo = await ensureVoucherNumberIsAvailable(session.agencyId, parsed.data.voucherNo);
     const voucher = await postHotelVoucher({
       ...parsed.data,
+      voucherNo,
       agencyId: session.agencyId,
       branchId: session.branchId ?? undefined,
       createdBy: session.userId,
+      consultantId,
     });
 
     revalidatePath("/vouchers");

@@ -24,6 +24,10 @@ import { logout } from "@/app/actions/auth";
 import { db, agencies } from "@/lib/db";
 import { eq } from "drizzle-orm";
 
+// This layout depends on the request session and the agency's current plan.
+// It must always be resolved at request time instead of using a cached route.
+export const dynamic = "force-dynamic";
+
 const nav = [
   { section: "Overview", items: [{ href: "/dashboard", label: "Dashboard", icon: LayoutDashboard }] },
   {

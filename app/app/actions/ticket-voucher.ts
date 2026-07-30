@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { postTicketVoucher } from "@/lib/accounting/post-ticket-voucher";
 import { requireSession } from "@/lib/auth/get-session";
+import { getCurrentConsultantId } from "@/lib/auth/current-consultant";
 import { revalidatePath } from "next/cache";
 
 const ticketVoucherSchema = z.object({
@@ -11,10 +12,6 @@ const ticketVoucherSchema = z.object({
   customerId: z.coerce.number().int().positive("Select a customer"),
   supplierId: z.coerce.number().int().positive("Select a supplier"),
   airlineId: z.preprocess(
-    (v) => (v === "" || v === null || v === undefined ? undefined : v),
-    z.coerce.number().int().positive().optional()
-  ),
-  consultantId: z.preprocess(
     (v) => (v === "" || v === null || v === undefined ? undefined : v),
     z.coerce.number().int().positive().optional()
   ),
@@ -59,6 +56,7 @@ export async function submitTicketVoucher(
   }
 
   const session = await requireSession();
+  const consultantId = await getCurrentConsultantId(session);
 
   try {
     const voucher = await postTicketVoucher({
@@ -66,6 +64,7 @@ export async function submitTicketVoucher(
       agencyId: session.agencyId,
       branchId: session.branchId ?? undefined,
       createdBy: session.userId,
+      consultantId,
     });
 
     revalidatePath("/vouchers");

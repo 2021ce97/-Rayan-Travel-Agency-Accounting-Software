@@ -1,48 +1,12 @@
 import { HotelVoucherForm } from "./hotel-voucher-form";
-import { getSession } from "@/lib/auth/get-session";
-import { db, consultants, roles, users } from "@/lib/db";
-import { and, eq } from "drizzle-orm";
+import { asc } from "drizzle-orm";
+import { cities, countries, db } from "@/lib/db";
 
 export default async function HotelVoucherPage() {
-  // If the logged-in user holds the "consultant" role, pre-populate the
-  // Consultant field by matching their email against the consultants table.
-  let defaultConsultant: { id: number; name: string } | undefined;
-
-  const session = await getSession();
-  if (session) {
-    // Check whether the user's role is named "consultant"
-    const [role] = await db
-      .select({ name: roles.name })
-      .from(roles)
-      .where(eq(roles.id, session.roleId))
-      .limit(1);
-
-    if (role?.name === "consultant") {
-      // Find the matching consultant record by email
-      const [user] = await db
-        .select({ email: users.email })
-        .from(users)
-        .where(eq(users.id, session.userId))
-        .limit(1);
-
-      if (user?.email) {
-        const [consultant] = await db
-          .select({ id: consultants.id, name: consultants.name })
-          .from(consultants)
-          .where(
-            and(
-              eq(consultants.agencyId, session.agencyId),
-              eq(consultants.email, user.email)
-            )
-          )
-          .limit(1);
-
-        if (consultant) {
-          defaultConsultant = consultant;
-        }
-      }
-    }
-  }
+  const [countryRows, cityRows] = await Promise.all([
+    db.select({ id: countries.id, name: countries.name }).from(countries).orderBy(asc(countries.name)),
+    db.select({ id: cities.id, countryId: cities.countryId, name: cities.name }).from(cities).orderBy(asc(cities.name)),
+  ]);
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -52,7 +16,7 @@ export default async function HotelVoucherPage() {
           Posting this voucher automatically creates the matching double-entry accounting lines.
         </p>
       </div>
-      <HotelVoucherForm defaultConsultant={defaultConsultant} />
+      <HotelVoucherForm countries={countryRows} cities={cityRows} />
     </div>
   );
 }

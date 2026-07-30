@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { LanguageSelector } from "@/components/language/language-selector";
 
 export const metadata: Metadata = {
   title: "Rayan Solutions — Travel Agency Management System",
@@ -13,7 +14,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="h-full antialiased">
-      <body className="min-h-full flex flex-col font-sans">{children}</body>
+      <body className="min-h-full flex flex-col font-sans">
+        {children}
+        <LanguageSelector />
+      </body>
     </html>
   );
 }

@@ -3,24 +3,26 @@
 import { z } from "zod";
 import { postVisaVoucher } from "@/lib/accounting/post-visa-voucher";
 import { requireSession } from "@/lib/auth/get-session";
+import { getCurrentConsultantId } from "@/lib/auth/current-consultant";
 import { revalidatePath } from "next/cache";
+
+const optionalPositiveInteger = z.preprocess(
+  (value) => (value === "" || value === null || value === undefined ? undefined : value),
+  z.coerce.number().int().positive().optional()
+);
 
 const visaVoucherSchema = z.object({
   voucherNo: z.string().min(1, "Voucher number is required"),
   voucherDate: z.string().min(1),
   customerId: z.coerce.number().int().positive("Select a customer"),
   supplierId: z.coerce.number().int().positive("Select a supplier"),
-  consultantId: z.preprocess(
-    (v) => (v === "" || v === null || v === undefined ? undefined : v),
-    z.coerce.number().int().positive().optional()
-  ),
   currencyId: z.coerce.number().int().positive(),
   exchangeRate: z.coerce.number().positive().default(1),
 
   visaType: z.string().optional(),
   visaNo: z.string().optional(),
   passportNo: z.string().optional(),
-  countryId: z.coerce.number().int().positive().optional(),
+  countryId: optionalPositiveInteger,
   issueDate: z.string().optional(),
 
   sellingAmount: z.coerce.number().min(0),
@@ -49,6 +51,7 @@ export async function submitVisaVoucher(
   }
 
   const session = await requireSession();
+  const consultantId = await getCurrentConsultantId(session);
 
   try {
     const voucher = await postVisaVoucher({
@@ -56,6 +59,7 @@ export async function submitVisaVoucher(
       agencyId: session.agencyId,
       branchId: session.branchId ?? undefined,
       createdBy: session.userId,
+      consultantId,
     });
 
     revalidatePath("/vouchers");
