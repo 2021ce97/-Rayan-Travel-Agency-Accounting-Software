@@ -5,6 +5,11 @@ import * as core from "./schema-core";
 import * as accounting from "./schema-accounting";
 import * as travel from "./schema-travel";
 
+declare global {
+  // Keep a single Postgres client alive across hot reloads in dev.
+  var __postgresClient: ReturnType<typeof postgres> | undefined;
+}
+
 const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL || "postgresql://postgres:postgres@127.0.0.1:5432/postgres";
 const usesSsl = connectionString.includes("supabase.co") || connectionString.includes("pooler.supabase.com");
 const usesPooler = connectionString.includes("pooler.supabase.com");
@@ -14,7 +19,15 @@ if (!process.env.DATABASE_URL && !process.env.POSTGRES_URL) {
 }
 
 // One shared connection pool per server instance.
-const client = postgres(connectionString, { max: 10, ssl: usesSsl ? "require" : false, prepare: !usesPooler });
+const client = globalThis.__postgresClient ?? postgres(connectionString, {
+  max: 10,
+  ssl: usesSsl ? "require" : false,
+  prepare: !usesPooler,
+});
+
+if (!globalThis.__postgresClient) {
+  globalThis.__postgresClient = client;
+}
 
 export const db = drizzle(client, {
   schema: { ...core, ...accounting, ...travel },
