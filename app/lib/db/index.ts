@@ -10,16 +10,21 @@ declare global {
   var __postgresClient: ReturnType<typeof postgres> | undefined;
 }
 
-const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL || "postgresql://postgres:postgres@127.0.0.1:5432/postgres";
-const usesSsl = connectionString.includes("supabase.co") || connectionString.includes("pooler.supabase.com");
-const usesPooler = connectionString.includes("pooler.supabase.com");
+const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
 
-if (!process.env.DATABASE_URL && !process.env.POSTGRES_URL) {
+if (!connectionString) {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("DATABASE_URL or POSTGRES_URL environment variable is required in production.");
+  }
   console.warn("DATABASE_URL not set; falling back to localhost PostgreSQL at 127.0.0.1:5432.");
 }
 
+const resolvedConnectionString = connectionString || "postgresql://postgres:postgres@127.0.0.1:5432/postgres";
+const usesSsl = resolvedConnectionString.includes("supabase.co") || resolvedConnectionString.includes("pooler.supabase.com");
+const usesPooler = resolvedConnectionString.includes("pooler.supabase.com");
+
 // One shared connection pool per server instance.
-const client = globalThis.__postgresClient ?? postgres(connectionString, {
+const client = globalThis.__postgresClient ?? postgres(resolvedConnectionString, {
   max: 10,
   ssl: usesSsl ? "require" : false,
   prepare: !usesPooler,
